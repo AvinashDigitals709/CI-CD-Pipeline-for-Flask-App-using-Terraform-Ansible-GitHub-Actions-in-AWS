@@ -120,6 +120,17 @@ jobs:
         echo "[flask]" > inventory.ini
         echo "${{ env.EC2_IP }} ansible_user=ubuntu ansible_ssh_private_key_file=ssh_key.pem" >> inventory.ini
 
+
+    # -----------------------------------------------------
+    # DISABLE SSH HOST KEY CHECKING (REQUIRED)
+    # -----------------------------------------------------
+    - name: Disable SSH Host Key Checking
+      run: |
+        echo "Host *" >> ~/.ssh/config
+        echo "    StrictHostKeyChecking no" >> ~/.ssh/config
+        echo "    UserKnownHostsFile=/dev/null" >> ~/.ssh/config
+        chmod 600 ~/.ssh/config
+
     # ---------------------------
     # Run Ansible
     # --------------------------- 
