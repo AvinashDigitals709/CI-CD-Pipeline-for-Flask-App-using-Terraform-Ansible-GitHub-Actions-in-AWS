@@ -5,3 +5,4 @@ variable "project_name" {
 variable "key_name" {
   default = "ci-cd"
 }
+
