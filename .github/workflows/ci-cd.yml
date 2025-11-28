@@ -10,7 +10,7 @@ jobs:
 
     env:
       AWS_REGION: us-east-1
-      BUCKET_NAME: avinash-tf-state   # <-- change bucket name if needed
+      BUCKET_NAME: terraform-state-avinash-backend   # <-- change bucket name if needed
 
     steps:
     - name: Checkout code
