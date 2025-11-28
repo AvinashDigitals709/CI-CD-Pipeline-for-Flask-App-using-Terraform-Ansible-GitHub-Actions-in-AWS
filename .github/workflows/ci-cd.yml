@@ -78,9 +78,13 @@ jobs:
     - name: Export EC2 Public IP
       working-directory: terraform
       run: |
-        IP=$(terraform output -raw ec2_public_ip | grep -Eo "([0-9]{1,3}\.){3}[0-9]{1,3}")
+        # Get the raw EC2 public IP and strip any newlines or spaces
+        IP=$(terraform output -raw ec2_public_ip | tr -d '[:space:]')
+        # Export it as a GitHub Actions environment variable
         echo "EC2_IP=$IP" >> $GITHUB_ENV
-        echo "EC2 Public IP: $IP"
+        # Optional: print to logs
+        # echo "EC2 Public IP: $IP"
+
 
     # ---------------------------
     # Create SSH Key
