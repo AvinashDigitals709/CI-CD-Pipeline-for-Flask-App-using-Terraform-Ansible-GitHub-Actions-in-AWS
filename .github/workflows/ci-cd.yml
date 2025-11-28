@@ -6,9 +6,9 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  BUCKET_NAME: terraform-state-avinash-backend   # <<-- change to your actual bucket name
+  BUCKET_NAME: terraform-state-avinash-backend
   TF_DIR: terraform
-  ANSIBLE_USER: ubuntu                            # override by adding secret ANSIBLE_USER if needed
+  ANSIBLE_USER: ubuntu
 
 jobs:
   deploy:
@@ -28,16 +28,16 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       # ---------------------------
-      # Ensure S3 backend bucket exists (us-east-1 safe)
+      # Ensure S3 backend bucket exists
       # ---------------------------
       - name: Ensure S3 backend bucket exists
         run: |
           set -e
-          echo "Checking S3 bucket: ${BUCKET_NAME} in region ${AWS_REGION}"
+          echo "Checking S3 bucket: ${BUCKET_NAME}"
           if aws s3api head-bucket --bucket "${BUCKET_NAME}" 2>/dev/null; then
-            echo "S3 bucket ${BUCKET_NAME} already exists"
+            echo "Bucket exists."
           else
-            echo "Creating S3 bucket ${BUCKET_NAME} in ${AWS_REGION}..."
+            echo "Creating bucket..."
             if [ "${AWS_REGION}" = "us-east-1" ]; then
               aws s3api create-bucket --bucket "${BUCKET_NAME}"
             else
@@ -47,7 +47,6 @@ jobs:
                 --create-bucket-configuration LocationConstraint="${AWS_REGION}"
             fi
             aws s3api put-bucket-versioning --bucket "${BUCKET_NAME}" --versioning-configuration Status=Enabled
-            echo "Created bucket and enabled versioning."
           fi
 
       # ---------------------------
@@ -57,129 +56,115 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       # ---------------------------
-      # Terraform init/plan/apply
+      # Terraform init-plan-apply
       # ---------------------------
       - name: Terraform Init
         working-directory: ${{ env.TF_DIR }}
         run: terraform init -input=false
 
-      - name: Terraform Validate & Plan
+      - name: Terraform Plan
         working-directory: ${{ env.TF_DIR }}
-        run: |
-          terraform validate || true
-          terraform plan -out=tfplan -input=false
+        run: terraform plan -out=tfplan -input=false
 
       - name: Terraform Apply
         working-directory: ${{ env.TF_DIR }}
         run: terraform apply -input=false -auto-approve tfplan
 
       # ---------------------------
-      # Get EC2 Public IP (clean)
+      # Get EC2 Public IP
       # ---------------------------
       - name: Get EC2 Public IP
-        id: get-ec2-ip
+        id: get-ip
         working-directory: ${{ env.TF_DIR }}
         run: |
           set -e
-          echo "Extracting EC2 public IP from Terraform output..."
-          # try -raw first then fallback
-          IP=$(terraform output -raw ec2_public_ip 2>/dev/null | tr -d '[:space:]' || true)
+          IP=$(terraform output -raw ec2_public_ip 2>/dev/null || true)
           if [ -z "$IP" ]; then
-            # fallback to plain output and regex extract
-            IP=$(terraform output ec2_public_ip 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1 || true)
+            IP=$(terraform output ec2_public_ip | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
           fi
           if [ -z "$IP" ]; then
-            echo "ERROR: Could not extract EC2 public IP"
-            terraform output
+            echo "ERROR: Could not extract EC2 IP"
             exit 1
           fi
-          echo "EC2 Public IP extracted: $IP"
           echo "EC2_IP=$IP" >> $GITHUB_ENV
           echo "ip=$IP" >> $GITHUB_OUTPUT
+          echo "EC2 Public IP is $IP"
 
       # ---------------------------
-      # Write SSH private key
+      # SSH Private Key
       # ---------------------------
-      - name: Write SSH private key
+      - name: Write SSH Private Key
         run: |
-          set -e
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          echo "Wrote SSH private key to ~/.ssh/id_rsa"
 
       # ---------------------------
-      # Disable strict host key checking (CI runner)
+      # Disable Strict Host Key Checking
       # ---------------------------
-      - name: Disable SSH host key checking
+      - name: Disable SSH Host Key Checking
         run: |
           mkdir -p ~/.ssh
-          touch ~/.ssh/config
-          chmod 700 ~/.ssh
-          cat <<'EOF' > ~/.ssh/config
-Host *
-  StrictHostKeyChecking no
-  UserKnownHostsFile=/dev/null
-EOF
+          {
+            echo "Host *"
+            echo "    StrictHostKeyChecking no"
+            echo "    UserKnownHostsFile=/dev/null"
+          } >> ~/.ssh/config
           chmod 600 ~/.ssh/config
-          echo "SSH host key checking disabled for CI runner"
 
       # ---------------------------
-      # Wait until SSH port is available on the host
+      # Wait for EC2 SSH
       # ---------------------------
       - name: Wait for EC2 SSH to be ready
         run: |
-          set -e
           IP=${{ env.EC2_IP }}
-          echo "Waiting for SSH on $IP:22"
-          MAX=30
-          SLEEP=10
-          for i in $(seq 1 $MAX); do
+          echo "Waiting for EC2 SSH on $IP..."
+
+          for i in {1..30}; do
             if nc -z -w 5 "$IP" 22; then
-              echo "SSH is available on $IP"
-              exit 0
+              echo "SSH is available!"
+              break
             fi
-            echo "Attempt $i/$MAX: SSH not ready yet; sleeping $SLEEP seconds..."
-            sleep $SLEEP
+            echo "Attempt $i: SSH not ready, retrying..."
+            sleep 10
           done
-          echo "ERROR: SSH did not come up on $IP after $((MAX*SLEEP)) seconds."
-          exit 1
+
+          if ! nc -z -w 5 "$IP" 22; then
+            echo "ERROR: SSH did NOT become ready."
+            exit 1
+          fi
 
       # ---------------------------
-      # Create dynamic Ansible inventory
+      # Create Ansible Inventory
       # ---------------------------
       - name: Create dynamic Ansible inventory
         run: |
-          set -e
           IP=${{ env.EC2_IP }}
           echo "[flask]" > inventory.ini
           echo "${IP} ansible_user=${{ env.ANSIBLE_USER }} ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
-          echo "Inventory file:"
           cat inventory.ini
 
       # ---------------------------
-      # Install Ansible on runner
+      # Install Ansible
       # ---------------------------
       - name: Install Ansible
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y software-properties-common
-          sudo apt-add-repository --yes --update ppa:ansible/ansible
           sudo apt-get install -y ansible
 
       # ---------------------------
-      # Run Ansible playbook
+      # Run Ansible Playbook
       # ---------------------------
       - name: Run Ansible Playbook
         run: |
-          ansible-playbook -i inventory.ini ansible/deploy.yml --private-key ~/.ssh/id_rsa -u ${{ env.ANSIBLE_USER }} -vv
+          ansible-playbook -i inventory.ini ansible/deploy.yml -u ${{ env.ANSIBLE_USER }} --private-key ~/.ssh/id_rsa -vv
 
       # ---------------------------
-      # Optional: show public IP and test health endpoint
+      # Test Flask Health Endpoint
       # ---------------------------
       - name: Test health endpoint
         run: |
           IP=${{ env.EC2_IP }}
           echo "Testing http://${IP}/health"
-          timeout 10 bash -c "until curl -sSf http://${IP}/health >/dev/null; do echo 'waiting for /health'; sleep 5; done"
-          echo "Health endpoint responded successfully"
+          timeout 10 bash -c "until curl -sSf http://${IP}/health >/dev/null; do echo 'Waiting for /health...'; sleep 5; done"
+          echo "Health check successful!"
