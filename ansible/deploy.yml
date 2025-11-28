@@ -1,70 +1,140 @@
 ---
-- hosts: flask
+- name: Deploy Flask App on EC2
+  hosts: flask
   become: yes
 
+  vars:
+    app_dir: /home/ubuntu/app
+    venv_dir: /home/ubuntu/app/venv
+
   tasks:
+
+    # ---------------------------
+    # Update system packages
+    # ---------------------------
     - name: Update apt
       apt:
         update_cache: yes
 
-    - name: Install dependencies
+    # ---------------------------
+    # Install required system packages
+    # ---------------------------
+    - name: Install system dependencies
       apt:
         name:
           - python3
-          - python3-pip
           - python3-venv
+          - python3-pip
           - nginx
         state: present
 
-    - name: Copy Flask app code
-      copy:
-        src: ../app/    # Your repo path on GitHub Actions runner
-        dest: /home/ubuntu/app/
+    # ---------------------------
+    # Create app directory
+    # ---------------------------
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
         owner: ubuntu
         group: ubuntu
         mode: '0755'
 
-
-    - name: Install python3 venv package
-      apt:
-        name: python3-venv
-        state: present
-        update_cache: yes
-
-    - name: Create virtual environment
-      command: python3 -m venv /home/ubuntu/venv
-
-    - name: Install requirements inside venv
-      command: /home/ubuntu/venv/bin/pip install -r /home/ubuntu/app/requirements.txt
-
-
-    - name: Copy systemd service file
+    # ---------------------------
+    # Copy Flask application code
+    # ---------------------------
+    - name: Copy application files
       copy:
-        src: files/app.service
-        dest: /etc/systemd/system/app.service
-        mode: '0644'
+        src: ../app/
+        dest: "{{ app_dir }}"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
 
+    # ---------------------------
+    # Create Python virtual environment
+    # ---------------------------
+    - name: Create virtual environment
+      command: python3 -m venv {{ venv_dir }}
+      args:
+        creates: "{{ venv_dir }}"
+
+    # ---------------------------
+    # Install Python dependencies inside venv
+    # ---------------------------
+    - name: Install requirements inside venv
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ venv_dir }}"
+        virtualenv_python: python3
+
+    # ---------------------------
+    # Create Gunicorn systemd service
+    # ---------------------------
+    - name: Create systemd service for gunicorn
+      copy:
+        dest: /etc/systemd/system/app.service
+        content: |
+          [Unit]
+          Description=Gunicorn Flask Service
+          After=network.target
+
+          [Service]
+          User=ubuntu
+          Group=www-data
+          WorkingDirectory={{ app_dir }}
+          ExecStart={{ venv_dir }}/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 wsgi:app
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    # ---------------------------
+    # Reload systemd and start gunicorn
+    # ---------------------------
     - name: Reload systemd
       command: systemctl daemon-reload
 
-    - name: Enable and start Flask app
+    - name: Enable gunicorn service
       systemd:
         name: app
-        state: started
-        enabled: true
+        enabled: yes
 
+    - name: Start gunicorn service
+      systemd:
+        name: app
+        state: restarted
+
+    # ---------------------------
+    # Configure NGINX
+    # ---------------------------
     - name: Configure NGINX reverse proxy
       copy:
+        dest: /etc/nginx/sites-available/flask_app
         content: |
           server {
               listen 80;
               server_name _;
 
               location / {
-                  proxy_pass http://127.0.0.1:5000;
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
               }
           }
-        dest: /etc/nginx/sites-available/default
+
+    - name: Enable NGINX site
+      file:
+        src: /etc/nginx/sites-available/flask_app
+        dest: /etc/nginx/sites-enabled/flask_app
+        state: link
+        force: yes
+
+    - name: Remove default NGINX site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
 
     - name: Restart NGINX
       systemd:
