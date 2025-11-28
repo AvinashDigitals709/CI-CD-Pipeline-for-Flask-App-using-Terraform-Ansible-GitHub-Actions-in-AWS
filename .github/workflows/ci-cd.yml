@@ -1,0 +1,78 @@
+name: CI-CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # ---------------------------
+    # Install Terraform & Ansible
+    # ---------------------------
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Install Ansible
+      run: sudo apt-get update && sudo apt-get install -y ansible
+
+    # ---------------------------
+    # Setup AWS credentials
+    # ---------------------------
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    # ---------------------------
+    # Terraform init/plan/apply
+    # ---------------------------
+    - name: Terraform Init
+      working-directory: terraform
+      run: terraform init
+
+    - name: Terraform Plan
+      working-directory: terraform
+      run: terraform plan
+
+    - name: Terraform Apply
+      working-directory: terraform
+      run: terraform apply -auto-approve
+
+    # ---------------------------
+    # Get EC2 IP
+    # ---------------------------
+    - name: Get EC2 Public IP
+      id: ip
+      working-directory: terraform
+      run: |
+        echo "EC2_IP=$(terraform output -raw ec2_public_ip)" >> $GITHUB_ENV
+
+    # ---------------------------
+    # Create SSH Key
+    # ---------------------------
+    - name: Write SSH key
+      run: |
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
+        chmod 600 ssh_key.pem
+
+    # ---------------------------
+    # Dynamic Ansible inventory
+    # ---------------------------
+    - name: Create Dynamic Inventory
+      run: |
+        echo "[flask]" > inventory.ini
+        echo "${EC2_IP} ansible_user=ubuntu ansible_ssh_private_key_file=ssh_key.pem" >> inventory.ini
+
+    # ---------------------------
+    # Run Ansible
+    # ---------------------------
+    - name: Run Ansible Playbook
+      run: ansible-playbook -i inventory.ini ansible/deploy.yml

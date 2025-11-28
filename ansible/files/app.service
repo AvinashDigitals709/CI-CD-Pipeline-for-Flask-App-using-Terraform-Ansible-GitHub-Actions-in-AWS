@@ -1,0 +1,12 @@
+[Unit]
+Description=Gunicorn Flask Service
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app
+ExecStart=/usr/bin/python3 /home/ubuntu/app/wsgi.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
