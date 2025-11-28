@@ -35,19 +35,26 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    # ---------------------------
-    # AUTO-CREATE S3 BACKEND BUCKET
+        # ---------------------------
+    # AUTO-CREATE S3 BACKEND BUCKET (us-east-1 SAFE)
     # ---------------------------
     - name: Create S3 Bucket for Terraform Backend
       run: |
-        if aws s3api head-bucket --bucket $BUCKET_NAME 2>/dev/null; then
+        echo "Checking S3 bucket: $BUCKET_NAME in region: $AWS_REGION"
+
+        if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
           echo "S3 bucket already exists."
         else
-          aws s3api create-bucket \
-            --bucket $BUCKET_NAME \
-            --region $AWS_REGION \
-            --create-bucket-configuration LocationConstraint=$AWS_REGION
-          echo "Created S3 bucket: $BUCKET_NAME"
+          if [ "$AWS_REGION" = "us-east-1" ]; then
+            echo "Creating bucket in us-east-1 WITHOUT LocationConstraint"
+            aws s3api create-bucket --bucket "$BUCKET_NAME"
+          else
+            echo "Creating bucket in $AWS_REGION WITH LocationConstraint"
+            aws s3api create-bucket \
+              --bucket "$BUCKET_NAME" \
+              --region "$AWS_REGION" \
+              --create-bucket-configuration LocationConstraint="$AWS_REGION"
+          fi
         fi
 
     # ---------------------------
