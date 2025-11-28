@@ -16,6 +16,15 @@
           - nginx
         state: present
 
+    - name: Copy Flask app code
+      copy:
+        src: ../app/    # Your repo path on GitHub Actions runner
+        dest: /home/ubuntu/app/
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+
     - name: Install app requirements
       pip:
         requirements: /home/ubuntu/app/requirements.txt

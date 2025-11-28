@@ -94,16 +94,13 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
         chmod 600 ssh_key.pem
 
-    # ---------------------------
-    # Dynamic Ansible inventory
-    # ---------------------------
     - name: Create Dynamic Inventory
       run: |
         echo "[flask]" > inventory.ini
-        echo "${EC2_IP} ansible_user=ubuntu ansible_ssh_private_key_file=ssh_key.pem" >> inventory.ini
+        echo "${{ env.EC2_IP }} ansible_user=ubuntu ansible_ssh_private_key_file=ssh_key.pem" >> inventory.ini
 
     # ---------------------------
     # Run Ansible
-    # ---------------------------
+    # --------------------------- 
     - name: Run Ansible Playbook
       run: ansible-playbook -i inventory.ini ansible/deploy.yml
