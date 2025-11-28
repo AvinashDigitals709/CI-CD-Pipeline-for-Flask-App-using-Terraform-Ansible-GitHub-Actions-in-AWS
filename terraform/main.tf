@@ -47,7 +47,7 @@ data "aws_subnets" "default" {
 # EC2 Instance (Ubuntu)
 # ---------------------------
 resource "aws_instance" "flask_server" {
-  ami           = "ami-0aa7d40eeae50c9a9" # Ubuntu 22.04 us-east-1
+  ami           = "ami-0ecb62995f68bb549" # Ubuntu 22.04 us-east-1
   instance_type = "t2.micro"
   key_name      = var.key_name
 
