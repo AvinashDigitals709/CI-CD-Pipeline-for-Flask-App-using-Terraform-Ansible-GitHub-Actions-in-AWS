@@ -73,17 +73,22 @@ jobs:
       run: terraform apply -auto-approve
 
     # ---------------------------
-    # Get EC2 IP
+    # Get EC2 IP (Clean & Safe)
     # ---------------------------
     - name: Export EC2 Public IP
       working-directory: terraform
       run: |
-        # Get the raw EC2 public IP and strip any newlines or spaces
-        IP=$(terraform output -raw ec2_public_ip | tr -d '[:space:]')
-        # Export it as a GitHub Actions environment variable
+        # Extract ONLY IPv4 using grep
+        IP=$(terraform output ec2_public_ip | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}")
+
+        if [ -z "$IP" ]; then
+          echo "ERROR: Could not extract EC2 IP!"
+          exit 1
+        fi
+
         echo "EC2_IP=$IP" >> $GITHUB_ENV
-        # Optional: print to logs
-        echo "EC2 Public IP: $IP"
+        echo "Clean EC2 Public IP: $IP"
+
 
 
     # ---------------------------
