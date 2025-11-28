@@ -83,7 +83,7 @@ jobs:
         # Export it as a GitHub Actions environment variable
         echo "EC2_IP=$IP" >> $GITHUB_ENV
         # Optional: print to logs
-        # echo "EC2 Public IP: $IP"
+        echo "EC2 Public IP: $IP"
 
 
     # ---------------------------
