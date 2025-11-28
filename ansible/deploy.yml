@@ -25,10 +25,18 @@
         mode: '0755'
 
 
-    - name: Install app requirements
-      pip:
-        requirements: /home/ubuntu/app/requirements.txt
-        executable: pip3
+    - name: Install python3 venv package
+      apt:
+        name: python3-venv
+        state: present
+        update_cache: yes
+
+    - name: Create virtual environment
+      command: python3 -m venv /home/ubuntu/venv
+
+    - name: Install requirements inside venv
+      command: /home/ubuntu/venv/bin/pip install -r /home/ubuntu/app/requirements.txt
+
 
     - name: Copy systemd service file
       copy:
