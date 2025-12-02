@@ -21,17 +21,24 @@ Your repository must adhere to the following structure for the pipeline to funct
 
 ```
 .
-├── .github/
-│   └── workflows/
-│       └── ci-cd.yml   # GitHub Actions workflow definition
-├── ansible/
-│   └── deploy.yml      # Main Ansible playbook for server configuration
 ├── app/
-│   ├── app.py          # Your Flask application code
-│   └── requirements.txt
-└── terraform/
-    ├── main.tf         # EC2, Security Group configuration
-    └── variables.tf    # Input variables (key_name, project_name)
+│   ├── static/
+│   ├── templates/
+│   ├── application.py
+│   ├── clothing.png
+│   ├── data.db
+│   ├── requirements.txt
+│   └── wsgi.py
+├── ansible/
+│   └── deploy.yml
+├── terraform/
+│   ├── backend.tf
+│   ├── main.tf
+│   ├── outputs.tf
+│   ├── provider.tf
+│   └── variables.tf
+└── .github/workflows/
+    └── ci-cd.yml
 ```
 
 ## 🛠️ Setup Instructions
