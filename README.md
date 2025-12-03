@@ -2,6 +2,10 @@
 
 This project provides a complete, automated Continuous Integration and Continuous Deployment (CI/CD) pipeline for deploying a Flask web application onto AWS EC2. The workflow leverages a powerful combination of Terraform for infrastructure provisioning, GitHub Actions for orchestration, and Ansible for application configuration and deployment.
 
+## 📊 CI/CD Pipeline Diagram
+
+For a visual overview of the CI/CD pipeline architecture and workflow, refer to the [CI/CD Final Assessment Diagram](CI_CD-Final_Assessment.drawio.pdf).
+
 ## 🏗️ Architecture and Workflow
 
 The architecture follows a standard GitOps approach, where every code change triggers an automated, end-to-end workflow, ensuring consistent and reproducible deployments.
