@@ -10,8 +10,9 @@ For a visual overview of the CI/CD pipeline architecture and workflow, see the d
 <p align="center">
   <img src="CI_CD-Final_Assessment.drawio.png" width="900">
 </p>
-### SVG (High Quality)
-![Pipeline Diagram](CI_CD-Final_Assessment.drawio.svg)
+
+<img src="diagram.svg" width="800">
+
 
 ## 🏗️ Architecture and Workflow
 
