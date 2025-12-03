@@ -4,7 +4,13 @@ This project provides a complete, automated Continuous Integration and Continuou
 
 ## 📊 CI/CD Pipeline Diagram
 
-For a visual overview of the CI/CD pipeline architecture and workflow, view the diagram here: [CI/CD Final Assessment Diagram](CI_CD-Final_Assessment.drawio.pdf)
+For a visual overview of the CI/CD pipeline architecture and workflow, see the diagram below:
+
+
+<p align="center">
+  <img src="CI_CD-Final_Assessment.drawio.png" width="900">
+</p>
+
 
 ## 🏗️ Architecture and Workflow
 
